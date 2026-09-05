@@ -241,6 +241,8 @@ All tables include a `user_id` column defaulting to `"default"`. This is hardcod
 - `total_value_cents` INTEGER
 - `recorded_at` TEXT (ISO timestamp)
 
+Snapshots older than 24 hours are downsampled to one point per five minutes; the most recent 24 hours retain the 30-second cadence. History responses are ordered ascending by `recorded_at` and default to the most recent 24 hours.
+
 **chat_messages** — Conversation history with LLM
 - `id` TEXT PRIMARY KEY (UUID)
 - `user_id` TEXT (default: `"default"`)
@@ -265,29 +267,31 @@ All tables include a `user_id` column defaulting to `"default"`. This is hardcod
 
 ## 8. API Endpoints
 
+All JSON errors use `{"detail": "human-readable message", "code": "stable_error_code"}`. Invalid request bodies return `422`; invalid business operations (such as insufficient funds, unavailable price, or overselling) return `400`; missing resources return `404`; and unexpected/provider failures return `502` for chat or `500` otherwise. All successful mutations return their resulting resource state.
+
 ### Market Data
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/stream/prices` | SSE stream of live price updates |
+| GET | `/api/stream/prices` | SSE stream. Sends a `snapshot` event immediately, then `price` events; price payloads contain `ticker`, `price`, `previous_price`, `opening_price`, `timestamp`, and `direction`. |
 
 ### Portfolio
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/portfolio` | Current positions, cash balance, total value, unrealized P&L |
-| POST | `/api/portfolio/trade` | Execute a trade: `{ticker, quantity, side}`. `quantity` must be strictly positive (reject `0` or negative values with a validation error); sells are additionally validated against held shares |
-| GET | `/api/portfolio/history` | Portfolio value snapshots over time (for P&L chart) |
+| GET | `/api/portfolio` | Returns `{cash_balance, total_value, unrealized_pnl, positions}`; every position includes ticker, quantity, average_cost, current_price, unrealized_pnl, and percent_change. |
+| POST | `/api/portfolio/trade` | Execute `{ticker, quantity, side}`. `quantity` must be strictly positive; returns the executed trade (including id and price) plus the updated portfolio. |
+| GET | `/api/portfolio/history` | Returns ascending `{recorded_at, total_value}` snapshots for the P&L chart. |
 
 ### Watchlist
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/watchlist` | Current watchlist tickers with latest prices |
-| POST | `/api/watchlist` | Add a ticker: `{ticker}` |
-| DELETE | `/api/watchlist/{ticker}` | Remove a ticker |
+| GET | `/api/watchlist` | Returns current watchlist entries with their latest price and daily/session change. |
+| POST | `/api/watchlist` | Add `{ticker}`; returns `201` when added and `200` with the existing entry when already watched. |
+| DELETE | `/api/watchlist/{ticker}` | Remove a ticker; idempotently returns `204` whether or not it was present. Held tickers remain priced and visible in Positions. |
 
 ### Chat
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/chat` | Send a message, receive complete JSON response (message + executed actions) |
+| POST | `/api/chat` | Send `{message}` and receive `{message, executed_actions}`. Each action confirmation includes its type, normalized ticker, success state, and resulting trade/watchlist data. |
 
 Chat is session-only in the UI: the frontend does not reload prior messages after a page refresh. The database log remains available to the backend solely for the one-message conversational context described below.
 
@@ -313,7 +317,7 @@ When the user sends a chat message, the backend:
 3. Constructs a prompt with a system message, portfolio context, prior message, and the user's new message
 4. Calls the LLM via LiteLLM → OpenRouter, requesting structured output
 5. Parses the complete structured JSON response
-6. Auto-executes actions in response order using the same validations as manual actions. Sensible PoC guards apply: a bounded number of actions, normalized tickers, and no retries of failed actions. If an action fails validation, its error is **not** persisted to `chat_messages` — it is kept in the in-request context and fed back into one corrective LLM call so the model can revise its `message` to inform the user without retrying the failed action. If that call fails, the backend returns a concise fallback message with the validation error.
+6. Auto-executes at most 10 actions in response order using the same validations as manual actions. Unknown fields are rejected by structured-output validation; duplicate/conflicting actions are reported as validation failures and are not retried. Tickers are normalized, and failed actions have no retry. If an action fails validation, its error is **not** persisted to `chat_messages` — it is kept in the in-request context and fed back into one corrective LLM call so the model can revise its `message` to inform the user without retrying the failed action. If that call fails, the backend returns a concise fallback message with the validation error.
 7. Stores the (final) message and executed actions in `chat_messages`
 8. Returns the complete JSON response to the frontend (no token-by-token streaming — inference is fast enough that a loading indicator is sufficient)
 
@@ -436,6 +440,8 @@ The project-root `db/` directory is not mounted. The backend writes `finally.db`
 **`scripts/start_windows.ps1`** / **`scripts/stop_windows.ps1`**: PowerShell equivalents for Windows.
 
 All scripts should be idempotent — safe to run multiple times.
+
+`docker-compose.yml` is an optional local convenience wrapper for the same app and named volume. `test/docker-compose.test.yml` is the required isolated test harness; it owns the disposable test volume and launches the Playwright container.
 
 ### Optional Cloud Deployment
 
