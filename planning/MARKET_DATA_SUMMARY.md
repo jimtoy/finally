@@ -25,14 +25,14 @@ MarketDataSource (ABC)
 
 | File | Purpose |
 |------|---------|
-| `models.py` | `PriceUpdate` — immutable frozen dataclass (ticker, price, previous_price, timestamp, change, direction) |
+| `models.py` | `PriceUpdate` — immutable frozen dataclass (ticker, price, previous_price, opening_price, timestamp, change, direction) |
 | `interface.py` | `MarketDataSource` — abstract base class defining `start/stop/add_ticker/remove_ticker/get_tickers` |
-| `cache.py` | `PriceCache` — thread-safe price store with version counter for SSE change detection |
+| `cache.py` | `PriceCache` — thread-safe price store with version counter for SSE change detection; tracks a per-ticker session opening price |
 | `seed_prices.py` | Realistic seed prices, per-ticker GBM params (drift/volatility), correlation groups |
 | `simulator.py` | `GBMSimulator` (Geometric Brownian Motion with Cholesky-correlated moves) + `SimulatorDataSource` |
 | `massive_client.py` | `MassiveDataSource` — REST polling client for Polygon.io via the `massive` package |
 | `factory.py` | `create_market_data_source()` — selects simulator or Massive based on `MASSIVE_API_KEY` env var |
-| `stream.py` | `create_stream_router()` — FastAPI SSE endpoint factory using version-based change detection |
+| `stream.py` | `create_stream_router()` — FastAPI SSE endpoint factory; emits a `snapshot` event on connect, then per-ticker `price` events on change |
 
 ### Key Design Decisions
 
@@ -41,21 +41,21 @@ MarketDataSource (ABC)
 - **GBM with correlated moves** — Cholesky decomposition of sector-based correlation matrix; tech stocks correlate at 0.6, finance at 0.5, cross-sector at 0.3
 - **Random shock events** — ~0.1% chance per tick per ticker of a 2-5% move for visual drama
 - **SSE over WebSockets** — simpler, one-way push, universal browser support
+- **Session opening price** — `PriceCache` remembers the first price seen for a ticker (until it's removed) so clients can compute `(price - opening_price) / opening_price` for daily change %, per PLAN.md §6
 
 ## Test Suite
 
-**73 tests, all passing.** 6 test modules in `backend/tests/market/`.
+7 test modules in `backend/tests/market/` (counts below reflect the latest additions for `opening_price` and the SSE event format; run `uv run --extra dev pytest -v` for the current total).
 
 | Module | Tests | Coverage |
 |--------|-------|----------|
-| test_models.py | 11 | models.py: 100% |
-| test_cache.py | 13 | cache.py: 100% |
+| test_models.py | 12 | models.py: 100% |
+| test_cache.py | 16 | cache.py: 100% |
 | test_simulator.py | 17 | simulator.py: 98% |
 | test_simulator_source.py | 10 | (integration tests) |
 | test_factory.py | 7 | factory.py: 100% |
 | test_massive.py | 13 | massive_client.py: 56% (expected — API methods mocked) |
-
-Overall coverage: 84%.
+| test_stream.py | 7 | stream.py: SSE snapshot/price event framing |
 
 ## Code Review & Fixes Applied
 

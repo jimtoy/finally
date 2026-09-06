@@ -101,3 +101,27 @@ class TestPriceCache:
         cache = PriceCache()
         update = cache.update("AAPL", 190.12345)
         assert update.price == 190.12
+
+    def test_first_update_sets_opening_price(self):
+        """Test that the opening price is set to the first observed price."""
+        cache = PriceCache()
+        update = cache.update("AAPL", 190.00)
+        assert update.opening_price == 190.00
+
+    def test_opening_price_persists_across_updates(self):
+        """Test that opening price stays fixed as later prices move."""
+        cache = PriceCache()
+        cache.update("AAPL", 190.00)
+        cache.update("AAPL", 195.00)
+        update = cache.update("AAPL", 188.00)
+        assert update.opening_price == 190.00
+        assert update.previous_price == 195.00
+
+    def test_opening_price_resets_after_remove_and_readd(self):
+        """Test that opening price starts a new session after remove + re-add."""
+        cache = PriceCache()
+        cache.update("AAPL", 190.00)
+        cache.update("AAPL", 195.00)
+        cache.remove("AAPL")
+        update = cache.update("AAPL", 200.00)
+        assert update.opening_price == 200.00
