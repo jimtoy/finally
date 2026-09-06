@@ -25,16 +25,24 @@ class PriceCache:
 
         Automatically computes direction and change from the previous price.
         If this is the first update for the ticker, previous_price == price (direction='flat').
+
+        The opening price is set on the first update for a ticker and held for
+        the lifetime of the cache entry (i.e. the simulator process/session),
+        so callers can compute a daily change percent as
+        (price - opening_price) / opening_price. It resets if the ticker is
+        removed and later re-added, starting a new session for it.
         """
         with self._lock:
             ts = timestamp or time.time()
             prev = self._prices.get(ticker)
             previous_price = prev.price if prev else price
+            opening_price = prev.opening_price if prev else price
 
             update = PriceUpdate(
                 ticker=ticker,
                 price=round(price, 2),
                 previous_price=round(previous_price, 2),
+                opening_price=round(opening_price, 2),
                 timestamp=ts,
             )
             self._prices[ticker] = update

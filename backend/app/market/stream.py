@@ -27,10 +27,17 @@ def create_stream_router(price_cache: PriceCache) -> APIRouter:
     async def stream_prices(request: Request) -> StreamingResponse:
         """SSE endpoint for live price updates.
 
-        Streams all tracked ticker prices every ~500ms. The client connects
-        with EventSource and receives events in the format:
+        Streams all tracked ticker prices. On connect, the client receives a
+        `snapshot` event with every cached ticker's data:
 
+            event: snapshot
             data: {"AAPL": {"ticker": "AAPL", "price": 190.50, ...}, ...}
+
+        After that, each ticker whose price changes gets its own `price`
+        event with just that ticker's data:
+
+            event: price
+            data: {"ticker": "AAPL", "price": 190.55, ...}
 
         Includes a retry directive so the browser auto-reconnects on
         disconnection (EventSource built-in behavior).
@@ -55,15 +62,22 @@ async def _generate_events(
 ) -> AsyncGenerator[str, None]:
     """Async generator that yields SSE-formatted price events.
 
-    Sends all prices every `interval` seconds. Stops when the client
-    disconnects (detected via request.is_disconnected()).
+    Sends an initial `snapshot` event with every cached ticker, then a
+    `price` event for each individual ticker whenever its price changes.
+    Stops when the client disconnects (detected via request.is_disconnected()).
     """
     # Tell the client to retry after 1 second if the connection drops
     yield "retry: 1000\n\n"
 
-    last_version = -1
     client_ip = request.client.host if request.client else "unknown"
     logger.info("SSE client connected: %s", client_ip)
+
+    last_sent = price_cache.get_all()
+    if last_sent:
+        snapshot = {ticker: update.to_dict() for ticker, update in last_sent.items()}
+        yield f"event: snapshot\ndata: {json.dumps(snapshot)}\n\n"
+
+    last_version = price_cache.version
 
     try:
         while True:
@@ -75,12 +89,13 @@ async def _generate_events(
             current_version = price_cache.version
             if current_version != last_version:
                 last_version = current_version
-                prices = price_cache.get_all()
+                current = price_cache.get_all()
 
-                if prices:
-                    data = {ticker: update.to_dict() for ticker, update in prices.items()}
-                    payload = json.dumps(data)
-                    yield f"data: {payload}\n\n"
+                for ticker, update in current.items():
+                    if last_sent.get(ticker) != update:
+                        yield f"event: price\ndata: {json.dumps(update.to_dict())}\n\n"
+
+                last_sent = current
 
             await asyncio.sleep(interval)
     except asyncio.CancelledError:

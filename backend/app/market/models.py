@@ -13,6 +13,7 @@ class PriceUpdate:
     ticker: str
     price: float
     previous_price: float
+    opening_price: float
     timestamp: float = field(default_factory=time.time)  # Unix seconds
 
     @property
@@ -42,6 +43,7 @@ class PriceUpdate:
             "ticker": self.ticker,
             "price": self.price,
             "previous_price": self.previous_price,
+            "opening_price": self.opening_price,
             "timestamp": self.timestamp,
             "change": self.change,
             "change_percent": self.change_percent,
