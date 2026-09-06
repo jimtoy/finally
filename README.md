@@ -4,7 +4,11 @@ A visually stunning AI-powered trading workstation that streams live market data
 
 Built entirely by coding agents as a capstone project for an agentic AI coding course.
 
-## Features
+## Status
+
+Under active development. Only the **market data simulator** is complete (see `planning/MARKET_DATA_SUMMARY.md`). The API, database, frontend, LLM chat, and Docker packaging described below are still to be built — see `planning/PLAN.md` for the full spec.
+
+## Planned Features
 
 - **Live price streaming** via SSE with green/red flash animations
 - **Simulated portfolio** — $10k virtual cash, market orders, instant fills
@@ -13,7 +17,7 @@ Built entirely by coding agents as a capstone project for an agentic AI coding c
 - **Watchlist management** — track tickers manually or via AI
 - **Dark terminal aesthetic** — Bloomberg-inspired, data-dense layout
 
-## Architecture
+## Architecture (Target)
 
 Single Docker container serving everything on port 8000:
 
@@ -21,41 +25,26 @@ Single Docker container serving everything on port 8000:
 - **Backend**: FastAPI (Python/uv) with SSE streaming
 - **Database**: SQLite with lazy initialization
 - **AI**: LiteLLM → OpenRouter directly with structured outputs
-- **Market data**: Built-in GBM simulator (default) or Massive API (optional)
-
-## Quick Start
-
-```bash
-# Clone and configure
-cp .env.example .env
-# Add your OPENROUTER_API_KEY to .env
-
-# Run with Docker
-docker build -t finally .
-docker run -v finally-data:/app/db -p 8000:8000 --env-file .env finally
-
-# Open http://localhost:8000
-```
+- **Market data**: Built-in GBM simulator (done); Massive API is an out-of-scope future enhancement
 
 ## Environment Variables
 
 | Variable | Required | Description |
 |---|---|---|
 | `OPENROUTER_API_KEY` | Yes | OpenRouter API key for AI chat |
-| `MASSIVE_API_KEY` | No | Massive (Polygon.io) key for real market data; omit to use simulator |
 | `LLM_MOCK` | No | Set `true` for deterministic mock LLM responses (testing) |
+
+`MASSIVE_API_KEY` is reserved for a future enhancement and currently has no effect — the simulator is the only market data source.
 
 ## Project Structure
 
 ```
 finally/
-├── frontend/    # Next.js static export
-├── backend/     # FastAPI uv project
-├── planning/    # Project documentation and agent contracts
-├── test/        # Playwright E2E tests
-├── db/          # SQLite volume mount (runtime)
-└── scripts/     # Start/stop helpers
+├── backend/     # FastAPI uv project (market data simulator implemented)
+└── planning/    # Project documentation and agent contracts
 ```
+
+`frontend/`, `test/`, `scripts/`, and Docker packaging do not exist yet.
 
 ## License
 
