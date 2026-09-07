@@ -1,3 +1,11 @@
+# FinAlly SQLite database (see planning/PLAN.md sec 4/7)
+/db/finally.db
+
+# Playwright E2E suite (test/README.md)
+/test/e2e/node_modules/
+/test/e2e/test-results/
+/test/e2e/playwright-report/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

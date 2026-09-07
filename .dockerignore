@@ -1,0 +1,42 @@
+.git
+.gitignore
+.github
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Node
+frontend/node_modules
+frontend/.next
+frontend/out
+frontend/coverage
+
+# Python
+backend/.venv
+backend/**/__pycache__
+backend/**/*.pyc
+backend/.pytest_cache
+backend/.ruff_cache
+backend/htmlcov
+backend/.coverage
+
+# Database (created at runtime / volume-mounted)
+db/finally.db
+db/*.db-journal
+db/*.db-wal
+db/*.db-shm
+
+# Test infra
+test
+
+# Editor / OS cruft
+.vscode
+.idea
+*.swp
+.DS_Store
+
+# Docs (not needed in image)
+planning
+README.md

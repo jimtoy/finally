@@ -1,0 +1,36 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: finally
+    container_name: finally-test-app
+    environment:
+      - LLM_MOCK=true
+      - FINALLY_DB_PATH=/app/db/finally.db
+    volumes:
+      - finally-test-data:/app/db
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health').read()"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+
+  playwright:
+    build:
+      context: ./e2e
+      dockerfile: Dockerfile
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      - PLAYWRIGHT_BASE_URL=http://app:8000
+      - RESTART_CMD=docker restart finally-test-app
+    volumes:
+      - ./e2e/playwright-report:/e2e/playwright-report
+      - ./e2e/test-results:/e2e/test-results
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  finally-test-data:

@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-terminal-bg text-terminal-text font-mono text-sm antialiased;
+}
+
+@layer components {
+  .panel {
+    @apply flex h-full min-h-0 flex-col rounded border border-terminal-border bg-terminal-panel;
+  }
+
+  .panel-header {
+    @apply flex shrink-0 items-center justify-between border-b border-terminal-border px-3 py-2;
+  }
+
+  .panel-title {
+    @apply text-2xs font-semibold uppercase tracking-[0.18em] text-accent-yellow;
+  }
+
+  .panel-body {
+    @apply min-h-0 flex-1 overflow-auto;
+  }
+
+  .field {
+    @apply rounded border border-terminal-border bg-terminal-bg px-2 py-1.5 text-sm text-terminal-text
+           placeholder:text-terminal-muted focus:border-accent-blue focus:outline-none;
+  }
+
+  .btn-submit {
+    @apply rounded bg-accent-purple px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-white
+           transition-colors hover:brightness-125 disabled:cursor-not-allowed disabled:opacity-40;
+  }
+}
+
+/* Price flash: a brief tinted background that fades out over ~500ms (PLAN.md §2). */
+@keyframes flash-up {
+  0% {
+    background-color: rgba(46, 204, 113, 0.35);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+@keyframes flash-down {
+  0% {
+    background-color: rgba(255, 92, 92, 0.35);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.flash-up {
+  animation: flash-up 500ms ease-out;
+}
+
+.flash-down {
+  animation: flash-down 500ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flash-up,
+  .flash-down {
+    animation: none;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0d1117;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a3441;
+  border-radius: 4px;
+}
